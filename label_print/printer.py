@@ -16,7 +16,7 @@ class BrotherPrinter:
     def __init__(
         self,
         printer_id: Optional[str] = None,
-        model: str = "PT-P700",
+        model: str = "QL-700",
     ):
         """
         Initialize printer connection.
@@ -24,7 +24,7 @@ class BrotherPrinter:
         Args:
             printer_id: Printer identifier (e.g., usb://..., tcp://...)
                        If None, tries to detect automatically
-            model: Printer model (default: PT-P700)
+            model: Printer model (default: QL-700, compatible with PT-P700)
         """
         self.printer_id = printer_id or os.environ.get("BROTHER_QL_PRINTER", "")
         self.model = model or os.environ.get("BROTHER_QL_MODEL", "PT-P700")
@@ -79,7 +79,7 @@ class BrotherPrinter:
     def print_image(
         self,
         image: Image.Image,
-        label_size: str = "24",
+        label_size: str = "d24",
         rotate: Optional[str] = None,
     ) -> bool:
         """
@@ -87,7 +87,7 @@ class BrotherPrinter:
 
         Args:
             image: PIL Image to print
-            label_size: Label width in mm (24 for 24mm tape)
+            label_size: Label size (d24 for 24mm die-cut tape)
             rotate: Rotation in degrees (auto, 0, 90, 180, 270)
 
         Returns:

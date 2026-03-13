@@ -29,9 +29,9 @@ logger = logging.getLogger(__name__)
 )
 @click.option(
     "--model",
-    default="PT-P700",
+    default="QL-700",
     envvar="BROTHER_QL_MODEL",
-    help="Printer model (default: PT-P700)",
+    help="Printer model (default: QL-700, use for PT-P700)",
 )
 @click.option(
     "--dry-run",
@@ -132,7 +132,7 @@ def main(
 
         click.echo(f"   Using printer: {printer.printer_id}")
 
-        if printer.print_image(label_img, label_size="24"):
+        if printer.print_image(label_img, label_size="12"):
             click.echo("✅ Label printed successfully!")
         else:
             click.echo("❌ Print failed", err=True)
