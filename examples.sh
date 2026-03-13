@@ -1,38 +1,38 @@
 #!/bin/bash
-# Example usage of label-print
+# Example usage of label-print for Brother PT-P700
 
 # First, install the tool:
 # pip install -e .
 
-# Example 1: Simple Digi-Key part number (uses default info line)
-label-print "296-32654-ND"
+# Example 1: LCSC part number (automatic lookup)
+label-print "C48974" "1A 30V Schottky"
 
-# Example 2: With custom info line
+# Example 2: Mouser part number (automatic lookup)
+label-print "821-MBS10" ".8A 1kV bridge"
+
+# Example 3: Digi-Key part (no API, uses part number as name)
 label-print "296-32654-ND" "100nF Capacitor"
 
-# Example 3: LCSC part (uses default info line)
-label-print "C0603X5R1V106M030BC"
+# Example 4: Custom part with URL (skip automatic lookup)
+label-print "MY-PART-123" "Custom component" --url "https://example.com/datasheet.pdf"
 
-# Example 4: LCSC with custom info
-label-print "C0603X5R1V106M030BC" "Power Supply"
+# Example 5: Uses default info line
+label-print "C48974"
 
-# Example 5: Dry run (doesn't print, useful for testing)
-label-print "296-32654-ND" --dry-run
+# Example 6: Dry run (doesn't print, useful for testing)
+label-print "C48974" --dry-run
 
-# Example 6: Save image without printing
-label-print "296-32654-ND" --dry-run --save-image /tmp/label.png
+# Example 7: Save image without printing
+label-print "C48974" "1A 30V Schottky" --save-image /tmp/label.png --dry-run
 
-# Example 7: With explicit printer (if not auto-detected)
-label-print "296-32654-ND" --printer-id "usb://0x04f9:0x2015/000M6Z401370"
-
-# Example 8: With API key for better Octopart results
-label-print "296-32654-ND" --api-key "YOUR_OCTOPART_API_KEY"
+# Example 8: With Mouser API key (optional, can use .env file)
+label-print "821-MBS10" ".8A 1kV bridge" --mouser-key "YOUR_MOUSER_API_KEY"
 
 # Example 9: Verbose output for debugging
-label-print "296-32654-ND" -v
+label-print "C48974" -v
 
-# Example 10: Discover available printers
-brother_ql discover
+# Example 10: Discover available printers (for reference, uses brother_ql)
+brother_ql -b pyusb discover
 
-# Example 11: Get printer info
-brother_ql -p "usb://0x04f9:0x2015/000M6Z401370" -m PT-P700 info
+# Example 11: Get printer info (uses ptouch-print)
+ptouch-print --info

@@ -4,40 +4,69 @@
 
 A complete, production-ready Python CLI tool called `label-print` for the Brother PT-P700 label printer.
 
-**Location:** `/home/node/.openclaw/workspace/label-print/`
-
 ## Installation Steps
 
-### 1. Install the package (in editable mode for development):
+### 1. Install system dependencies
+
+**ptouch-print** (required for PT-P700 printing):
+```bash
+git clone https://git.familie-radermacher.ch/linux/ptouch-print.git
+cd ptouch-print
+mkdir build && cd build
+cmake ..
+make
+sudo make install
+```
+
+**brother_ql** (for printer discovery):
+```bash
+pip install brother-ql
+```
+
+### 2. Install the label-print package
 
 ```bash
-cd /home/node/.openclaw/workspace/label-print
+cd /path/to/label-print
 pip install -e .
 ```
 
 Or for standard installation:
-
 ```bash
 pip install .
 ```
 
-### 2. Verify installation:
+### 3. Setup USB permissions (Linux)
+
+Create `/etc/udev/rules.d/99-brother-printer.rules`:
+```
+SUBSYSTEM=="usb", ATTRS{idVendor}=="04f9", MODE="0666"
+```
+
+Reload udev rules:
+```bash
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+```
+
+Reconnect the printer.
+
+### 4. Verify installation
 
 ```bash
 label-print --help
 ```
 
-You should see the full CLI documentation.
-
-### 3. Test printer discovery:
+### 5. Test printer detection
 
 ```bash
-brother_ql discover
+ptouch-print --info
 ```
 
 Look for output like:
 ```
-Found Brother QL-700 (PT-P700) on usb://0x04f9:0x2015/000M6Z401370
+PT-P700 found on USB bus 3, device 58
+printer has 180 dpi, maximum printing width is 128 px
+maximum printing width for this tape is 76px
 ```
 
 ## Quick Test
@@ -45,13 +74,13 @@ Found Brother QL-700 (PT-P700) on usb://0x04f9:0x2015/000M6Z401370
 Print your first label:
 
 ```bash
-label-print "C0603X5R1V106M030BC"
+label-print "C48974" "1A 30V Schottky"
 ```
 
-Or with custom info:
+Or with Mouser part:
 
 ```bash
-label-print "C0603X5R1V106M030BC" "100nF Capacitor"
+label-print "821-MBS10" ".8A 1kV bridge"
 ```
 
 ## Project Structure
@@ -69,10 +98,10 @@ label-print/
 ├── label_print/               # Main package
 │   ├── __init__.py           # Package exports
 │   ├── cli.py                # Click CLI interface ⭐ Entry point
-│   ├── octopart.py           # Octopart API client
+│   ├── part_lookup.py        # LCSC/Mouser part lookup
 │   ├── part_number.py        # Part validation & distributor detection
 │   ├── label_generator.py    # Label image generation (PIL)
-│   └── printer.py            # Brother printer interface
+│   └── printer.py            # Brother PT-P700 interface (ptouch-print)
 │
 └── tests/
     └── test_part_number.py   # Unit tests
@@ -84,11 +113,13 @@ label-print/
    - Uses Click for argument parsing
    - Orchestrates entire workflow
    - Error handling with user-friendly messages
+   - Supports `--url` option to bypass automatic lookup
 
-### 2. **octopart.py** - Part lookup
-   - Queries Octopart API (free tier, no key required)
-   - Gets part name, datasheet URL, manufacturer info
-   - Graceful fallback if API unavailable
+### 2. **part_lookup.py** - Part information lookup
+   - **LCSC**: Web scraping for part name and datasheet
+   - **Mouser**: REST API with fallback to ProductDetailUrl
+   - **Digi-Key**: No API (requires OAuth), uses part number as-is
+   - Graceful fallback if lookup fails
 
 ### 3. **part_number.py** - Distributor detection
    - Identifies part source: Digi-Key, Mouser, LCSC
@@ -96,100 +127,130 @@ label-print/
    - Regex patterns for each distributor
 
 ### 4. **label_generator.py** - Label image creation
-   - PIL/Pillow for image generation
-   - 24mm tape width optimization (206 pixels at 203 DPI)
-   - QR code generation with qrcode library
+   - PIL/Pillow for 1-bit B&W image generation
+   - 12mm tape: 76px width at 180 DPI (PT-P700 spec)
+   - Landscape orientation: 150x76 pixels
+   - Dynamic font sizing (10-20pt) to maximize readability
+   - QR code generation with qrcode library (60px)
    - Text wrapping and layout
 
 ### 5. **printer.py** - Printer interface
-   - Wraps `brother_ql` CLI tool
+   - Uses `ptouch-print` for PT-series printers
+   - Uses `brother_ql` for printer discovery only
    - Auto-discovers printers
    - Validates connection
    - Handles print job execution
 
 ## Dependencies
 
-All dependencies are pip-installable:
+### System Dependencies
+| Package        | Purpose                           | Installation |
+|----------------|-----------------------------------|--------------|
+| ptouch-print   | PT-series printer driver          | Build from source (see above) |
+| brother-ql     | Printer discovery (pyusb backend) | `pip install brother-ql` |
 
-| Package     | Purpose                    | Version  |
-|------------|----------------------------|----------|
-| brother-ql | Brother printer CLI        | >=0.9.4  |
-| qrcode     | QR code generation        | >=7.3    |
-| requests   | HTTP requests (Octopart)  | >=2.25.0 |
-| click      | CLI framework             | >=8.0.0  |
-| Pillow     | Image processing          | >=8.0.0  |
+### Python Dependencies (pip-installable)
+| Package        | Purpose                    | Version  |
+|----------------|----------------------------|----------|
+| qrcode[pil]    | QR code generation         | >=7.3    |
+| requests       | HTTP requests (Mouser API) | >=2.25.0 |
+| click          | CLI framework              | >=8.0.0  |
+| Pillow         | Image processing           | >=8.0.0  |
+| beautifulsoup4 | HTML parsing (LCSC)        | >=4.9.0  |
+| lxml           | XML/HTML parser            | >=4.6.0  |
+| python-dotenv  | Environment variables      | >=0.19.0 |
 
 ## Usage Examples
 
-### Basic:
+### LCSC part (automatic lookup):
 ```bash
-label-print "296-32654-ND"
+label-print "C48974" "1A 30V Schottky"
 ```
 
-### With custom text:
+### Mouser part (automatic lookup):
 ```bash
-label-print "C0603X5R1V106M030BC" "100nF Capacitor"
+label-print "821-MBS10" ".8A 1kV bridge"
+```
+
+### Custom part with URL:
+```bash
+label-print "MY-PART" "Custom component" --url "https://example.com/datasheet"
 ```
 
 ### Dry run (no print):
 ```bash
-label-print "296-32654-ND" --dry-run
+label-print "C48974" --dry-run
 ```
 
 ### Save label image:
 ```bash
-label-print "296-32654-ND" --save-image /tmp/label.png
+label-print "C48974" "1A 30V Schottky" --save-image /tmp/label.png
 ```
 
-### Specify printer manually:
+### With Mouser API key:
 ```bash
-label-print "296-32654-ND" --printer-id "usb://0x04f9:0x2015/000M6Z401370"
-```
-
-### With Octopart API key:
-```bash
-label-print "296-32654-ND" --api-key "YOUR_KEY_HERE"
+label-print "821-MBS10" ".8A 1kV bridge" --mouser-key "YOUR_KEY_HERE"
 ```
 
 ### Verbose output:
 ```bash
-label-print "296-32654-ND" -v
+label-print "C48974" -v
 ```
 
 ## Environment Variables
 
-For convenience, set these in your shell profile:
+Create a `.env` file in the project directory or set in your shell:
 
 ```bash
-# Printer auto-detection (optional)
-export BROTHER_QL_PRINTER="usb://0x04f9:0x2015/000M6Z401370"
-export BROTHER_QL_MODEL="PT-P700"
+# Mouser API key (optional, for better part lookups)
+MOUSER_API_KEY="your_mouser_api_key"
 
-# Octopart API key (optional, free tier works without it)
-export OCTOPART_API_KEY="your_api_key"
+# Printer settings (optional, for manual override)
+BROTHER_QL_PRINTER="usb://0x04f9:0x2061"
+BROTHER_QL_MODEL="QL-700"  # Use QL-700 for PT-P700 compatibility
 ```
 
 ## Troubleshooting
 
-### "No printers found"
+### "ptouch-print command not found"
 ```bash
-# Check if printer is connected
-brother_ql discover
-
-# If not listed, try with explicit identifier
-label-print "296-32654-ND" --printer-id "usb://0x04f9:0x2015/000M6Z401370"
+# Install ptouch-print from source (see Installation Steps above)
+which ptouch-print  # Should return /usr/local/bin/ptouch-print
 ```
 
-### "brother_ql command not found"
+### "PT-P700 found" but red flashing light
+- Check that image dimensions are correct (150x76 for 12mm tape)
+- Ensure you're using 1-bit B&W images, not RGB
+- Verify tape is loaded correctly
+
+### "No printers found" during discovery
 ```bash
-pip install brother-ql
+# Check USB connection
+brother_ql -b pyusb discover
+
+# Check ptouch-print can see it
+ptouch-print --info
 ```
 
-### "Part not found on Octopart"
-Tool gracefully falls back to using the part number as the label name. This is normal for obscure or new parts.
+### USB permission denied (Linux)
+```bash
+# Add udev rule (see Installation Steps above)
+sudo nano /etc/udev/rules.d/99-brother-printer.rules
+# Add: SUBSYSTEM=="usb", ATTRS{idVendor}=="04f9", MODE="0666"
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+```
 
-### "QR code generation failed"
-Label will print without QR code. This is handled gracefully.
+### "Part not found" or "No datasheet found"
+- LCSC: Part page must exist at `https://www.lcsc.com/product-detail/{part}.html`
+- Mouser: Falls back to product page if no datasheet URL
+- Digi-Key: Not supported (requires OAuth), use `--url` option
+- Use `--url` to provide custom URLs for any part
+
+### Blank labels printing
+- Verify ptouch-print is installed (not using brother_ql for printing)
+- Check image is 1-bit mode, not RGB
+- Use `--save-image` to inspect generated image
 
 ## Running Tests
 
