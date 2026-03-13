@@ -27,6 +27,9 @@ setup(
         "requests>=2.25.0",
         "click>=8.0.0",
         "Pillow>=8.0.0",
+        "beautifulsoup4>=4.9.0",
+        "lxml>=4.6.0",
+        "python-dotenv>=0.19.0",
     ],
     entry_points={
         "console_scripts": [

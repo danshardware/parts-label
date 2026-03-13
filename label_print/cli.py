@@ -6,7 +6,7 @@ import sys
 from typing import Optional
 
 from .part_number import validate_part_number, detect_distributor, get_distributor_name
-from .octopart import OctopartClient
+from .part_lookup import PartLookupClient
 from .label_generator import LabelGenerator
 from .printer import BrotherPrinter
 
@@ -45,10 +45,10 @@ logger = logging.getLogger(__name__)
     help="Save label image to file",
 )
 @click.option(
-    "--api-key",
+    "--mouser-key",
     default=None,
-    envvar="OCTOPART_API_KEY",
-    help="Octopart API key (optional)",
+    envvar="MOUSER_API_KEY",
+    help="Mouser API key (optional, can also use .env file)",
 )
 @click.option(
     "-v", "--verbose",
@@ -62,7 +62,7 @@ def main(
     model: str,
     dry_run: bool,
     save_image: Optional[str],
-    api_key: Optional[str],
+    mouser_key: Optional[str],
     verbose: bool,
 ):
     """
@@ -86,10 +86,10 @@ def main(
     distributor_name = get_distributor_name(distributor)
     click.echo(f"📦 Part: {part_number} ({distributor_name})")
 
-    # Query Octopart for part info
+    # Query distributor for part info
     click.echo("🔍 Looking up part information...")
-    octopart = OctopartClient(api_key=api_key)
-    part_name, datasheet_url = octopart.get_part_info(part_number)
+    lookup_client = PartLookupClient(mouser_api_key=mouser_key)
+    part_name, datasheet_url = lookup_client.get_part_info(part_number)
 
     if part_name != part_number:
         click.echo(f"   Found: {part_name}")

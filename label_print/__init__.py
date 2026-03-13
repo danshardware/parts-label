@@ -3,12 +3,12 @@
 __version__ = "0.1.0"
 __author__ = "Dan"
 
-from .octopart import OctopartClient
+from .part_lookup import PartLookupClient
 from .printer import BrotherPrinter
 from .label_generator import LabelGenerator
 
 __all__ = [
-    "OctopartClient",
+    "PartLookupClient",
     "BrotherPrinter",
     "LabelGenerator",
 ]
