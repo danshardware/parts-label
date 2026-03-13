@@ -168,8 +168,14 @@ class MouserSearcher:
                 # Extract part name (manufacturer part number)
                 part_name = part.get('ManufacturerPartNumber') or part.get('MouserPartNumber') or part_number
 
-                # Extract datasheet URL
+                # Extract datasheet URL, fallback to product detail URL
                 datasheet_url = part.get('DataSheetUrl')
+                if not datasheet_url:
+                    # Use product detail URL without query string as fallback
+                    product_url = part.get('ProductDetailUrl', '')
+                    if product_url:
+                        # Remove query string (everything after '?')
+                        datasheet_url = product_url.split('?')[0]
 
                 logger.info(f"Found Mouser part: {part_name}")
                 if datasheet_url:
