@@ -48,7 +48,22 @@ class BrotherPrinter:
                 logger.error(f"Discovery failed: {result.stderr}")
                 return []
 
-            printers = [line.strip() for line in result.stdout.split("\n") if line.strip()]
+            # Parse printer IDs and clean up any garbage characters
+            printers = []
+            for line in result.stdout.split("\n"):
+                line = line.strip()
+                if line.startswith("usb://"):
+                    # Extract only the USB ID part, remove any trailing garbage
+                    # Format: usb://0xVVVV:0xPPPP or usb://0xVVVV:0xPPPP_serial
+                    # Clean by keeping only ASCII printable chars and stopping at whitespace
+                    cleaned = ''.join(c for c in line if c.isprintable() and ord(c) < 128)
+                    # Further clean: keep only up to first space or unprintable
+                    cleaned = cleaned.split()[0] if cleaned else ""
+                    # Remove trailing underscore if present
+                    cleaned = cleaned.rstrip('_')
+                    if cleaned:
+                        printers.append(cleaned)
+
             logger.info(f"Found {len(printers)} printer(s)")
             return printers
 
