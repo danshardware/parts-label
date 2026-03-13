@@ -8,11 +8,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# 24mm tape = ~206 pixels at 203 DPI (Brother QL standard)
-# Width: 206 pixels, Height: variable based on content
-# We'll use 24mm width and 50mm height for labels
-TAPE_WIDTH_PX = 206  # 24mm at 203 DPI
-LABEL_HEIGHT_PX = 424  # ~50mm at 203 DPI
+# 12mm tape = 106 pixels at 203 DPI (Brother QL standard)
+# Width: 106 pixels, Height: proportional for content
+TAPE_WIDTH_PX = 106  # 12mm at 203 DPI
+LABEL_HEIGHT_PX = 212  # ~25mm at 203 DPI
 
 # Color constants
 BLACK = (0, 0, 0)
@@ -54,8 +53,8 @@ class LabelGenerator:
 
         # Try to load fonts, fallback to default if not available
         try:
-            title_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 14)
-            text_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 10)
+            title_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 9)
+            text_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 7)
         except (OSError, IOError):
             # Fallback to default font
             logger.warning("Could not load fonts, using default")
@@ -63,17 +62,17 @@ class LabelGenerator:
             text_font = ImageFont.load_default()
 
         # Layout: part name on top (left), info line below, QR code on right
-        content_width = TAPE_WIDTH_PX - 10  # 5px margins
-        qr_size = 80  # QR code size in pixels
-        text_area_width = content_width - qr_size - 10  # 10px gap
+        content_width = TAPE_WIDTH_PX - 6  # 3px margins
+        qr_size = 40  # QR code size in pixels (scaled for 12mm tape)
+        text_area_width = content_width - qr_size - 5  # 5px gap
 
         # Draw part name (larger, bold)
         self._draw_text(
             draw,
             part_name,
             font=title_font,
-            x=5,
-            y=10,
+            x=3,
+            y=5,
             max_width=text_area_width,
             color=BLACK,
         )
@@ -83,8 +82,8 @@ class LabelGenerator:
             draw,
             info_line,
             font=text_font,
-            x=5,
-            y=50,
+            x=3,
+            y=25,
             max_width=text_area_width,
             color=BLACK,
         )
@@ -94,8 +93,8 @@ class LabelGenerator:
             try:
                 qr_img = self._generate_qr_code(datasheet_url, qr_size)
                 # Position QR code on the right side
-                qr_x = TAPE_WIDTH_PX - qr_size - 5
-                qr_y = 10
+                qr_x = TAPE_WIDTH_PX - qr_size - 3
+                qr_y = 5
                 img.paste(qr_img, (qr_x, qr_y))
                 logger.debug(f"QR code added at ({qr_x}, {qr_y})")
             except Exception as e:
