@@ -5,7 +5,7 @@ import logging
 import sys
 from typing import Optional
 
-from .part_number import validate_part_number, detect_distributor, get_distributor_name
+from .part_number import validate_part_number, detect_distributor, get_distributor_name, Distributor
 from .part_lookup import PartLookupClient
 from .label_generator import LabelGenerator
 from .printer import BrotherPrinter
@@ -85,7 +85,7 @@ def main(
     # Validate part number
     if not validate_part_number(part_number):
         click.echo(f"❌ Invalid part number: {part_number}", err=True)
-        click.echo("   Part numbers must be 3-50 alphanumeric characters.", err=True)
+        click.echo("   Part numbers must be 3-50 characters (letters, numbers, spaces, dashes, underscores).", err=True)
         sys.exit(1)
 
     # Use custom URL or perform lookup
@@ -96,25 +96,31 @@ def main(
         part_name = part_number
         datasheet_url = url
     else:
-        # Detect distributor and perform lookup
+        # Detect distributor
         distributor = detect_distributor(part_number)
         distributor_name = get_distributor_name(distributor)
         click.echo(f"📦 Part: {part_number} ({distributor_name})")
 
-        # Query distributor for part info
-        click.echo("🔍 Looking up part information...")
-        lookup_client = PartLookupClient(mouser_api_key=mouser_key)
-        part_name, datasheet_url = lookup_client.get_part_info(part_number)
-
-        if part_name != part_number:
-            click.echo(f"   Found: {part_name}")
+        # Skip lookup for unknown distributors
+        if distributor == Distributor.UNKNOWN:
+            click.echo("   ℹ️  Unknown distributor, skipping lookup")
+            part_name = part_number
+            datasheet_url = None
         else:
-            click.echo(f"   Using part number as name: {part_number}")
+            # Query distributor for part info
+            click.echo("🔍 Looking up part information...")
+            lookup_client = PartLookupClient(mouser_api_key=mouser_key)
+            part_name, datasheet_url = lookup_client.get_part_info(part_number)
 
-        if datasheet_url:
-            click.echo(f"   📄 Datasheet: {datasheet_url}")
-        else:
-            click.echo("   (No datasheet found)")
+            if part_name != part_number:
+                click.echo(f"   Found: {part_name}")
+            else:
+                click.echo(f"   Using part number as name: {part_number}")
+
+            if datasheet_url:
+                click.echo(f"   📄 Datasheet: {datasheet_url}")
+            else:
+                click.echo("   (No datasheet found)")
 
     # Use provided info line or default
     final_info_line = info_line or "Electronics"

@@ -53,8 +53,8 @@ def validate_part_number(part_number: str) -> bool:
     if not part_number or not isinstance(part_number, str):
         return False
 
-    # Must be alphanumeric with dashes/underscores, 3-50 chars
-    if not re.match(r"^[\w\-]{3,50}$", part_number):
+    # Must be alphanumeric with dashes/underscores/spaces, 3-50 chars
+    if not re.match(r"^[\w\-\s]{3,50}$", part_number):
         return False
 
     return True
