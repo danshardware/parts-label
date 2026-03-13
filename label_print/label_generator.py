@@ -8,25 +8,25 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# 12mm tape = 106 pixels at 203 DPI (Brother QL standard)
-# Width: 106 pixels, Height: proportional for content
-TAPE_WIDTH_PX = 106  # 12mm at 203 DPI
-LABEL_HEIGHT_PX = 212  # ~25mm at 203 DPI
+# 12mm tape = 76 pixels at 180 DPI (Brother PT-P700)
+# Width: 76 pixels (max for 12mm tape), Height: proportional for content
+TAPE_WIDTH_PX = 76  # 12mm at 180 DPI (PT-P700 max)
+LABEL_HEIGHT_PX = 150  # ~20mm at 180 DPI
 
-# Color constants
-BLACK = (0, 0, 0)
-WHITE = (255, 255, 255)
+# Color constants (for 1-bit mode: 0 = black, 1 = white)
+BLACK = 0
+WHITE = 1
 
 
 class LabelGenerator:
     """Generate label images for printing."""
 
-    def __init__(self, dpi: int = 203):
+    def __init__(self, dpi: int = 180):
         """
         Initialize label generator.
 
         Args:
-            dpi: Dots per inch for printer (Brother QL standard: 203)
+            dpi: Dots per inch for printer (Brother PT-P700: 180)
         """
         self.dpi = dpi
 
@@ -47,32 +47,57 @@ class LabelGenerator:
         Returns:
             PIL Image object suitable for printing
         """
-        # Create blank label image
-        img = Image.new("RGB", (TAPE_WIDTH_PX, LABEL_HEIGHT_PX), WHITE)
+        # Create blank label image in landscape (PT-P700 format)
+        # PT-P700 expects: width = along tape, height = tape width (76px)
+        img = Image.new("1", (LABEL_HEIGHT_PX, TAPE_WIDTH_PX), 1)  # 1 = white, landscape
         draw = ImageDraw.Draw(img)
+
+        # Layout: text on left, QR code on right (landscape orientation)
+        content_height = TAPE_WIDTH_PX - 6  # 3px top/bottom margins
+        qr_size = 60  # QR code size in pixels (max for 76px tape)
+        qr_x = LABEL_HEIGHT_PX - qr_size - 5
+        text_area_width = qr_x - 10  # Leave 5px margin on left, 5px gap before QR
 
         # Try to load fonts, fallback to default if not available
         try:
-            title_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 9)
-            text_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 7)
+            # Start with max font size and reduce if text doesn't fit
+            title_font_size = 20
+            text_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 12)
+
+            # Find largest font size that fits
+            title_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", title_font_size)
+            test_draw = ImageDraw.Draw(img)
+
+            # Check if part_name fits in one line
+            try:
+                bbox = test_draw.textbbox((0, 0), part_name, font=title_font)
+                text_width = bbox[2] - bbox[0]
+            except AttributeError:
+                text_width = test_draw.textsize(part_name, font=title_font)[0]
+
+            # Reduce font size if text is too wide
+            while text_width > text_area_width and title_font_size > 10:
+                title_font_size -= 1
+                title_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", title_font_size)
+                try:
+                    bbox = test_draw.textbbox((0, 0), part_name, font=title_font)
+                    text_width = bbox[2] - bbox[0]
+                except AttributeError:
+                    text_width = test_draw.textsize(part_name, font=title_font)[0]
+
         except (OSError, IOError):
             # Fallback to default font
             logger.warning("Could not load fonts, using default")
             title_font = ImageFont.load_default()
             text_font = ImageFont.load_default()
 
-        # Layout: part name on top (left), info line below, QR code on right
-        content_width = TAPE_WIDTH_PX - 6  # 3px margins
-        qr_size = 40  # QR code size in pixels (scaled for 12mm tape)
-        text_area_width = content_width - qr_size - 5  # 5px gap
-
-        # Draw part name (larger, bold)
+        # Draw part name (larger, bold, auto-sized)
         self._draw_text(
             draw,
             part_name,
             font=title_font,
-            x=3,
-            y=5,
+            x=5,
+            y=8,
             max_width=text_area_width,
             color=BLACK,
         )
@@ -82,8 +107,8 @@ class LabelGenerator:
             draw,
             info_line,
             font=text_font,
-            x=3,
-            y=25,
+            x=5,
+            y=45,
             max_width=text_area_width,
             color=BLACK,
         )
@@ -93,8 +118,7 @@ class LabelGenerator:
             try:
                 qr_img = self._generate_qr_code(datasheet_url, qr_size)
                 # Position QR code on the right side
-                qr_x = TAPE_WIDTH_PX - qr_size - 3
-                qr_y = 5
+                qr_y = (TAPE_WIDTH_PX - qr_size) // 2  # Center vertically
                 img.paste(qr_img, (qr_x, qr_y))
                 logger.debug(f"QR code added at ({qr_x}, {qr_y})")
             except Exception as e:
@@ -176,7 +200,7 @@ class LabelGenerator:
             size: Size of QR code in pixels
 
         Returns:
-            PIL Image of QR code
+            PIL Image of QR code (1-bit black and white)
         """
         qr = qrcode.QRCode(
             version=1,
@@ -191,6 +215,9 @@ class LabelGenerator:
 
         # Resize to desired size
         qr_img = qr_img.resize((size, size), Image.Resampling.LANCZOS)
+
+        # Convert to 1-bit mode to match label image
+        qr_img = qr_img.convert("1")
 
         return qr_img
 

@@ -98,40 +98,26 @@ class BrotherPrinter:
         rotate: Optional[str] = "90",
     ) -> bool:
         """
-        Print image to Brother printer.
+        Print image to Brother PT-P700 printer using ptouch-print.
 
         Args:
-            image: PIL Image to print
-            label_size: Label size (d24 for 24mm die-cut tape)
-            rotate: Rotation in degrees (auto, 0, 90, 180, 270)
+            image: PIL Image to print (should be 1-bit B&W)
+            label_size: Unused (kept for API compatibility)
+            rotate: Unused (kept for API compatibility)
 
         Returns:
             True if print succeeded, False otherwise
         """
-        if not self.validate_connection():
-            return False
-
         # Save image to temporary file
         temp_file = "/tmp/label_to_print.png"
         image.save(temp_file, "PNG")
         logger.debug(f"Saved label image to {temp_file}")
 
-        # Build brother_ql command
+        # Build ptouch-print command (much simpler than brother_ql!)
         cmd = [
-            "brother_ql",
-            "-b", "pyusb",
-            "-m", self.model,
-            "-p", self.printer_id,
-            "print",
-            "-l", label_size,  # 24mm tape
+            "ptouch-print",
+            "--image", temp_file,
         ]
-
-        # Add rotation (always rotate for continuous tape)
-        if rotate:
-            cmd.extend(["-r", rotate])
-
-        # Add image file
-        cmd.append(temp_file)
 
         try:
             logger.debug(f"Running: {' '.join(cmd)}")
@@ -150,7 +136,7 @@ class BrotherPrinter:
             return True
 
         except FileNotFoundError:
-            logger.error("brother_ql command not found")
+            logger.error("ptouch-print command not found. Install from: https://git.familie-radermacher.ch/linux/ptouch-print.git")
             return False
         except subprocess.TimeoutExpired:
             logger.error("Print timeout")
