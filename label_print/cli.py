@@ -51,6 +51,11 @@ logger = logging.getLogger(__name__)
     help="Mouser API key (optional, can also use .env file)",
 )
 @click.option(
+    "--url",
+    default=None,
+    help="Custom URL for QR code (skips automatic part lookup)",
+)
+@click.option(
     "-v", "--verbose",
     is_flag=True,
     help="Verbose output",
@@ -63,6 +68,7 @@ def main(
     dry_run: bool,
     save_image: Optional[str],
     mouser_key: Optional[str],
+    url: Optional[str],
     verbose: bool,
 ):
     """
@@ -71,6 +77,7 @@ def main(
     Example:
         label-print "296-32654-ND"
         label-print "C0603X5R1V106M030BC" "100nF Capacitor"
+        label-print "MY-PART" "Custom part" --url "https://example.com/datasheet.pdf"
     """
     if verbose:
         logging.getLogger().setLevel(logging.DEBUG)
@@ -81,25 +88,33 @@ def main(
         click.echo("   Part numbers must be 3-50 alphanumeric characters.", err=True)
         sys.exit(1)
 
-    # Detect distributor
-    distributor = detect_distributor(part_number)
-    distributor_name = get_distributor_name(distributor)
-    click.echo(f"📦 Part: {part_number} ({distributor_name})")
-
-    # Query distributor for part info
-    click.echo("🔍 Looking up part information...")
-    lookup_client = PartLookupClient(mouser_api_key=mouser_key)
-    part_name, datasheet_url = lookup_client.get_part_info(part_number)
-
-    if part_name != part_number:
-        click.echo(f"   Found: {part_name}")
+    # Use custom URL or perform lookup
+    if url:
+        # Skip lookup, use provided URL
+        click.echo(f"📦 Part: {part_number}")
+        click.echo(f"   📄 Custom URL: {url}")
+        part_name = part_number
+        datasheet_url = url
     else:
-        click.echo(f"   Using part number as name: {part_number}")
+        # Detect distributor and perform lookup
+        distributor = detect_distributor(part_number)
+        distributor_name = get_distributor_name(distributor)
+        click.echo(f"📦 Part: {part_number} ({distributor_name})")
 
-    if datasheet_url:
-        click.echo(f"   📄 Datasheet: {datasheet_url}")
-    else:
-        click.echo("   (No datasheet found)")
+        # Query distributor for part info
+        click.echo("🔍 Looking up part information...")
+        lookup_client = PartLookupClient(mouser_api_key=mouser_key)
+        part_name, datasheet_url = lookup_client.get_part_info(part_number)
+
+        if part_name != part_number:
+            click.echo(f"   Found: {part_name}")
+        else:
+            click.echo(f"   Using part number as name: {part_number}")
+
+        if datasheet_url:
+            click.echo(f"   📄 Datasheet: {datasheet_url}")
+        else:
+            click.echo("   (No datasheet found)")
 
     # Use provided info line or default
     final_info_line = info_line or "Electronics"
