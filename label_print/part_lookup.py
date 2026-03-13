@@ -59,8 +59,12 @@ class LCSCSearcher:
                 if title_tag:
                     # Extract meaningful part from title
                     title_text = title_tag.get_text(strip=True)
-                    # Remove " - LCSC" suffix if present
-                    part_name = title_text.split(' - ')[0].strip()
+                    # Stop at first pipe symbol
+                    if '|' in title_text:
+                        part_name = title_text.split('|')[0].strip()
+                    else:
+                        # Remove " - LCSC" suffix if present
+                        part_name = title_text.split(' - ')[0].strip()
 
             # Extract datasheet URL
             datasheet_url = None
