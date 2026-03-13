@@ -38,7 +38,7 @@ class BrotherPrinter:
         """
         try:
             result = subprocess.run(
-                ["brother_ql", "discover"],
+                ["brother_ql", "-b", "pyusb", "discover"],
                 capture_output=True,
                 text=True,
                 timeout=10,
@@ -104,6 +104,7 @@ class BrotherPrinter:
         # Build brother_ql command
         cmd = [
             "brother_ql",
+            "-b", "pyusb",
             "-m", self.model,
             "-p", self.printer_id,
             "print",
