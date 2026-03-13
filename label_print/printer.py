@@ -95,7 +95,7 @@ class BrotherPrinter:
         self,
         image: Image.Image,
         label_size: str = "d24",
-        rotate: Optional[str] = None,
+        rotate: Optional[str] = "90",
     ) -> bool:
         """
         Print image to Brother printer.
@@ -126,7 +126,7 @@ class BrotherPrinter:
             "-l", label_size,  # 24mm tape
         ]
 
-        # Add rotation if specified
+        # Add rotation (always rotate for continuous tape)
         if rotate:
             cmd.extend(["-r", rotate])
 
