@@ -96,7 +96,7 @@ def main(
     # Validate part number
     if not validate_part_number(part_number):
         click.echo(f"❌ Invalid part number: {part_number}", err=True)
-        click.echo("   Part numbers must be 3-50 characters (letters, numbers, spaces, dashes, underscores, slashes).", err=True)
+        click.echo("   Part numbers must be 3-50 characters (letters, numbers, spaces, dashes, underscores, slashes, periods).", err=True)
         sys.exit(1)
 
     # Use custom URL or perform lookup
