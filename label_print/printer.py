@@ -96,6 +96,7 @@ class BrotherPrinter:
         image: Image.Image,
         label_size: str = "d24",
         rotate: Optional[str] = "90",
+        chain: bool = False,
     ) -> bool:
         """
         Print image to Brother PT-P700 printer using ptouch-print.
@@ -104,6 +105,7 @@ class BrotherPrinter:
             image: PIL Image to print (should be 1-bit B&W)
             label_size: Unused (kept for API compatibility)
             rotate: Unused (kept for API compatibility)
+            chain: Skip cutting to print multiple labels continuously
 
         Returns:
             True if print succeeded, False otherwise
@@ -114,10 +116,12 @@ class BrotherPrinter:
         logger.debug(f"Saved label image to {temp_file}")
 
         # Build ptouch-print command (much simpler than brother_ql!)
-        cmd = [
-            "ptouch-print",
-            "--image", temp_file,
-        ]
+        cmd = ["ptouch-print"]
+
+        if chain:
+            cmd.append("--chain")
+
+        cmd.extend(["--image", temp_file])
 
         try:
             logger.debug(f"Running: {' '.join(cmd)}")

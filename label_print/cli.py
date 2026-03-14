@@ -56,6 +56,11 @@ logger = logging.getLogger(__name__)
     help="Custom URL for QR code (skips automatic part lookup)",
 )
 @click.option(
+    "--chain",
+    is_flag=True,
+    help="Skip cutting between labels (saves tape)",
+)
+@click.option(
     "-v", "--verbose",
     is_flag=True,
     help="Verbose output",
@@ -69,6 +74,7 @@ def main(
     save_image: Optional[str],
     mouser_key: Optional[str],
     url: Optional[str],
+    chain: bool,
     verbose: bool,
 ):
     """
@@ -85,7 +91,7 @@ def main(
     # Validate part number
     if not validate_part_number(part_number):
         click.echo(f"❌ Invalid part number: {part_number}", err=True)
-        click.echo("   Part numbers must be 3-50 characters (letters, numbers, spaces, dashes, underscores).", err=True)
+        click.echo("   Part numbers must be 3-50 characters (letters, numbers, spaces, dashes, underscores, slashes).", err=True)
         sys.exit(1)
 
     # Use custom URL or perform lookup
@@ -153,7 +159,7 @@ def main(
 
         click.echo(f"   Using printer: {printer.printer_id}")
 
-        if printer.print_image(label_img, label_size="12"):
+        if printer.print_image(label_img, label_size="12", chain=chain):
             click.echo("✅ Label printed successfully!")
         else:
             click.echo("❌ Print failed", err=True)

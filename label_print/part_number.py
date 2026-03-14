@@ -33,8 +33,8 @@ def detect_distributor(part_number: str) -> Distributor:
         return Distributor.LCSC
 
     # Mouser pattern: broad fallback for standard part numbers
-    # This catches most numeric patterns that aren't Digi-Key or LCSC
-    if re.match(r"^[\w\-]+$", part_number) and len(part_number) >= 5:
+    # This catches most patterns that aren't Digi-Key or LCSC (includes slashes)
+    if re.match(r"^[\w\-/]+$", part_number) and len(part_number) >= 5:
         return Distributor.MOUSER
 
     return Distributor.UNKNOWN
@@ -53,8 +53,8 @@ def validate_part_number(part_number: str) -> bool:
     if not part_number or not isinstance(part_number, str):
         return False
 
-    # Must be alphanumeric with dashes/underscores/spaces, 3-50 chars
-    if not re.match(r"^[\w\-\s]{3,50}$", part_number):
+    # Must be alphanumeric with dashes/underscores/spaces/slashes, 3-50 chars
+    if not re.match(r"^[\w\-\s/]{3,50}$", part_number):
         return False
 
     return True
