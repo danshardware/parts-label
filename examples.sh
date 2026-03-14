@@ -10,6 +10,18 @@ label-print "C48974" "1A 30V Schottky"
 # Example 2: Mouser part number (automatic lookup)
 label-print "821-MBS10" ".8A 1kV bridge"
 
+# Example 2a: Using environment variables for batch chain printing
+export LP_CHAIN=1  # Skip cutting between labels to save tape
+label-print "C48974" "1A 30V Schottky"
+label-print "821-MBS10" ".8A 1kV bridge"
+label-print "C48974" "Another part"
+unset LP_CHAIN  # Clean up
+
+# Example 2b: Environment variable for dry-run mode
+export LP_DRY_RUN=1  # Test without printing
+label-print "C48974" "1A 30V Schottky"
+unset LP_DRY_RUN
+
 # Example 3: Digi-Key part (no API, uses part number as name)
 label-print "296-32654-ND" "100nF Capacitor"
 

@@ -36,34 +36,39 @@ logger = logging.getLogger(__name__)
 @click.option(
     "--dry-run",
     is_flag=True,
-    help="Generate label but don't print",
+    envvar="LP_DRY_RUN",
+    help="Generate label but don't print [env: LP_DRY_RUN]",
 )
 @click.option(
     "--save-image",
     type=click.Path(),
     default=None,
-    help="Save label image to file",
+    envvar="LP_SAVE_IMAGE",
+    help="Save label image to file [env: LP_SAVE_IMAGE]",
 )
 @click.option(
     "--mouser-key",
     default=None,
     envvar="MOUSER_API_KEY",
-    help="Mouser API key (optional, can also use .env file)",
+    help="Mouser API key (optional, can also use .env file) [env: MOUSER_API_KEY]",
 )
 @click.option(
     "--url",
     default=None,
-    help="Custom URL for QR code (skips automatic part lookup)",
+    envvar="LP_URL",
+    help="Custom URL for QR code (skips automatic part lookup) [env: LP_URL]",
 )
 @click.option(
     "--chain",
     is_flag=True,
-    help="Skip cutting between labels (saves tape)",
+    envvar="LP_CHAIN",
+    help="Skip cutting between labels (saves tape) [env: LP_CHAIN]",
 )
 @click.option(
     "-v", "--verbose",
     is_flag=True,
-    help="Verbose output",
+    envvar="LP_VERBOSE",
+    help="Verbose output [env: LP_VERBOSE]",
 )
 def main(
     part_number: str,
