@@ -106,26 +106,83 @@ class LCSCSearcher:
 class MouserSearcher:
     """Search Mouser API for part information."""
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, llm_client=None):
         """
         Initialize Mouser API client.
 
         Args:
             api_key: Mouser API key. If not provided, uses MOUSER_API_KEY env var.
+            llm_client: Optional LLM client for smart part matching
         """
         self.api_key = api_key or os.environ.get('MOUSER_API_KEY', '')
         self.base_url = "https://api.mouser.com/api/v1"
         self.session = requests.Session()
+        self.llm_client = llm_client
+
+    def _clean_part_result(self, part: dict) -> dict:
+        """
+        Clean Mouser API result to only essential fields.
+
+        Args:
+            part: Raw Mouser API part result
+
+        Returns:
+            Cleaned part dictionary
+        """
+        return {
+            'MouserPartNumber': part.get('MouserPartNumber'),
+            'ManufacturerPartNumber': part.get('ManufacturerPartNumber'),
+            'Manufacturer': part.get('Manufacturer'),
+            'Description': part.get('Description'),
+            'Category': part.get('Category'),
+            'Availability': part.get('Availability'),
+            'AvailabilityInStock': part.get('AvailabilityInStock'),
+            'ProductDetailUrl': part.get('ProductDetailUrl', '').split('?')[0],  # Remove query params
+            'DataSheetUrl': part.get('DataSheetUrl'),
+            'InfoMessages': part.get('InfoMessages', []),
+        }
+
+    def _pick_best_match(self, search_term: str, parts: list) -> dict:
+        """
+        Pick the best matching part from multiple results.
+
+        Args:
+            search_term: Original search term
+            parts: List of cleaned part results
+
+        Returns:
+            Best matching part
+        """
+        if len(parts) == 1:
+            return parts[0]
+
+        # Prefer exact manufacturer part number match
+        for part in parts:
+            if part['ManufacturerPartNumber'] == search_term:
+                logger.debug(f"Exact match: {search_term}")
+                return part
+
+        # Prefer parts with stock
+        in_stock = [p for p in parts if p.get('AvailabilityInStock') and p['AvailabilityInStock'] != '0']
+        if in_stock:
+            # Sort by stock quantity (most popular)
+            in_stock.sort(key=lambda p: int(p['AvailabilityInStock']) if p['AvailabilityInStock'].isdigit() else 0, reverse=True)
+            logger.debug(f"Selected most popular variant: {in_stock[0]['ManufacturerPartNumber']}")
+            return in_stock[0]
+
+        # Default to first result
+        logger.debug(f"Defaulting to first result: {parts[0]['ManufacturerPartNumber']}")
+        return parts[0]
 
     def search(self, part_number: str) -> Tuple[str, Optional[str]]:
         """
         Search Mouser API for part information.
 
         Args:
-            part_number: Mouser part number
+            part_number: Part number to search (Mouser P/N or Manufacturer P/N)
 
         Returns:
-            Tuple of (part_name, datasheet_url)
+            Tuple of (description, product_url)
         """
         if not self.api_key:
             logger.warning("Mouser API key not configured")
@@ -142,7 +199,7 @@ class MouserSearcher:
             data = {
                 'SearchByKeywordRequest': {
                     'keyword': part_number,
-                    'records': 1,
+                    'records': 5,  # Get multiple results for better matching
                     'startingRecord': 0
                 }
             }
@@ -163,25 +220,31 @@ class MouserSearcher:
             parts = result.get('SearchResults', {}).get('Parts', [])
 
             if parts and len(parts) > 0:
-                part = parts[0]
+                # Clean all results
+                cleaned_parts = [self._clean_part_result(p) for p in parts]
 
-                # Extract part name (manufacturer part number)
-                part_name = part.get('ManufacturerPartNumber') or part.get('MouserPartNumber') or part_number
+                # Pick best match
+                best_part = self._pick_best_match(part_number, cleaned_parts)
 
-                # Extract datasheet URL, fallback to product detail URL
-                datasheet_url = part.get('DataSheetUrl')
-                if not datasheet_url:
-                    # Use product detail URL without query string as fallback
-                    product_url = part.get('ProductDetailUrl', '')
-                    if product_url:
-                        # Remove query string (everything after '?')
-                        datasheet_url = product_url.split('?')[0]
+                # Build description
+                mfr = best_part.get('Manufacturer', '')
+                mfr_pn = best_part.get('ManufacturerPartNumber', part_number)
+                desc = best_part.get('Description', '')
+                category = best_part.get('Category', '')
 
-                logger.info(f"Found Mouser part: {part_name}")
-                if datasheet_url:
-                    logger.debug(f"Datasheet: {datasheet_url}")
+                # Combine into useful description
+                description = f"{mfr} {mfr_pn}: {desc}"
+                if category and category not in desc:
+                    description = f"{category} - {description}"
 
-                return part_name, datasheet_url
+                # Get URL (prefer product page over empty datasheet)
+                url = best_part.get('DataSheetUrl') or best_part.get('ProductDetailUrl')
+
+                logger.info(f"Found Mouser part: {mfr_pn}")
+                if url:
+                    logger.debug(f"URL: {url}")
+
+                return description, url
             else:
                 logger.warning(f"No results from Mouser API for {part_number}")
                 return part_number, None
@@ -197,25 +260,28 @@ class MouserSearcher:
 class PartLookupClient:
     """Main client for looking up part information from various sources."""
 
-    def __init__(self, mouser_api_key: Optional[str] = None):
+    def __init__(self, mouser_api_key: Optional[str] = None, llm_client=None):
         """
         Initialize part lookup client.
 
         Args:
             mouser_api_key: Optional Mouser API key
+            llm_client: Optional LLM client for smart matching
         """
         self.lcsc_searcher = LCSCSearcher()
-        self.mouser_searcher = MouserSearcher(api_key=mouser_api_key)
+        self.mouser_searcher = MouserSearcher(api_key=mouser_api_key, llm_client=llm_client)
+        self.llm_client = llm_client
 
-    def get_part_info(self, part_number: str) -> Tuple[str, Optional[str]]:
+    def get_part_info(self, part_number: str, try_mouser_fuzzy: bool = True) -> Tuple[str, Optional[str]]:
         """
         Look up part information based on detected distributor.
 
         Args:
             part_number: Part number to search
+            try_mouser_fuzzy: If True, try Mouser search for unknown distributors
 
         Returns:
-            Tuple of (part_name, datasheet_url)
+            Tuple of (description, datasheet_url)
         """
         distributor = detect_distributor(part_number)
 
@@ -226,10 +292,20 @@ class PartLookupClient:
         elif distributor == Distributor.MOUSER:
             return self.mouser_searcher.search(part_number)
         elif distributor == Distributor.DIGI_KEY:
-            # Digi-Key OAuth is too complex for CLI, use part number as-is
+            # Digi-Key OAuth is too complex for CLI, try Mouser as fallback
+            if try_mouser_fuzzy and self.mouser_searcher.api_key:
+                logger.info(f"Digi-Key part detected, trying Mouser search")
+                result = self.mouser_searcher.search(part_number)
+                if result[0] != part_number:  # Got useful data
+                    return result
             logger.info(f"Digi-Key part detected, using part number as name")
             return part_number, None
         else:
-            # Unknown distributor, use part number
+            # Unknown distributor, try Mouser as fallback
+            if try_mouser_fuzzy and self.mouser_searcher.api_key:
+                logger.info(f"Unknown distributor, trying Mouser search")
+                result = self.mouser_searcher.search(part_number)
+                if result[0] != part_number:  # Got useful data
+                    return result
             logger.info(f"Unknown distributor, using part number as name")
             return part_number, None

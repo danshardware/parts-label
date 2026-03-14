@@ -30,10 +30,14 @@ setup(
         "beautifulsoup4>=4.9.0",
         "lxml>=4.6.0",
         "python-dotenv>=0.19.0",
+        "boto3>=1.26.0",
+        "pyyaml>=6.0",
     ],
     entry_points={
         "console_scripts": [
             "label-print=label_print.cli:main",
+            "label-scan=label_print.scan_cli:main",
+            "label-print-yaml=label_print.print_yaml:main",
         ],
     },
 )

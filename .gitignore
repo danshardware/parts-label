@@ -31,3 +31,9 @@ venv/
 *.png
 .env
 .env.local
+
+# Experiments and test files
+experiments/
+test*.yaml
+*_test.yaml
+labels.yaml
