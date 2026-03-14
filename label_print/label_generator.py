@@ -52,16 +52,22 @@ class LabelGenerator:
         img = Image.new("1", (LABEL_HEIGHT_PX, TAPE_WIDTH_PX), 1)  # 1 = white, landscape
         draw = ImageDraw.Draw(img)
 
-        # Layout: text on left, QR code on right (landscape orientation)
-        content_height = TAPE_WIDTH_PX - 6  # 3px top/bottom margins
-        qr_size = 60  # QR code size in pixels (max for 76px tape)
-        qr_x = LABEL_HEIGHT_PX - qr_size - 5
-        text_area_width = qr_x - 10  # Leave 5px margin on left, 5px gap before QR
+        # Calculate text area width based on whether we have a QR code
+        if datasheet_url:
+            # With QR code: text on left, QR code on right
+            qr_size = 60  # QR code size in pixels (max for 76px tape)
+            qr_x = LABEL_HEIGHT_PX - qr_size - 5
+            text_area_width = qr_x - 10  # Leave 5px margin on left, 5px gap before QR
+            max_title_font_size = 20
+        else:
+            # Without QR code: use full width for text
+            text_area_width = LABEL_HEIGHT_PX - 10  # 5px margins on each side
+            max_title_font_size = 30  # Larger font when more space available
 
         # Try to load fonts, fallback to default if not available
         try:
             # Start with max font size and reduce if text doesn't fit
-            title_font_size = 20
+            title_font_size = max_title_font_size
             text_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 12)
 
             # Find largest font size that fits
